@@ -8,7 +8,7 @@
       ref="file"
       accept=".jpeg,.jpg" 
       :maxFileSize="50000000"
-      :multiple="false"
+      :multiple="true"
       :customUpload="true"
       @uploader="doOCTTTS"
     >
@@ -26,48 +26,53 @@
     
     <span 
       class="textImage"
+      v-if="image_name != null && reading_image == false"
+    >
+      <strong>{{ image_name }}</strong> 
+    </span>
+    <br>
+    <span 
+      class="textImage"
       style="white-space: pre;"
     >
-      {{ textImage }} 
+      {{ text_image }} 
       <i 
         class="pi pi-spin pi-spinner" 
         style="font-size: 1rem"
         v-if="reading_image"
       ></i>
     </span>
+    
 
   </div>
 </template>
 
 <script>
-import ocrurl from './ocrurl.js'
 
 export default {
   data() {
     return {
-      textImage: "Waiting image(s)",
+      text_image: "Waiting an upload",
       audio_decoded: null,
-      reading_image: false
+      reading_image: false,
+      image_name: null
     }
   },
 
   methods:{
-    test(event) {
-      console.log(event)
-    },
-
     async doOCTTTS(event) {      
-      this.textImage = 'Reading the first image'
+      let image = event.files[0]
+      this.image_name = image.name
+      this.text_image = `Reading ${this.image_name}`
       this.$refs.audio.src = null
       this.reading_image = true
 
-      let image = event.files[0]
       const reader = new FileReader();
       let blob = await fetch(image.objectURL).then(r => r.blob());
 
       reader.onload = () => {
         const data = new Uint8Array(reader.result);
-        const url = ocrurl.OCRURL;
+        const url = process.env.VUE_APP_OCRURL;
         const options = {
           method: 'POST',
           body: data,
@@ -81,7 +86,7 @@ export default {
             {
               response.json().then((data) => {
                 this.reading_image = false
-                this.textImage = data.text
+                this.text_image = data.text
 
                 var audioDecode = window.atob(data.audio_bytes)
                 var audioArray = new Uint8Array(new ArrayBuffer(audioDecode.length));
@@ -104,12 +109,12 @@ export default {
             {
               response.json().then((data) => {
                 this.reading_image = false
-                this.textImage = data.errorMessage
+                this.text_image = data.errorMessage
               })
             }
             else {
               this.reading_image = false
-              this.textImage = 'Erro reading message, try again'
+              this.text_image = 'Erro reading message, try again'
             }
           }
         )
