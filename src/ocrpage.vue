@@ -10,7 +10,7 @@
       :maxFileSize="50000000"
       :multiple="true"
       :customUpload="true"
-      @uploader="doOCTTTS"
+      @uploader="DoOCRTTS"
     >
       <template #empty>
         <p>Insert images here.</p>
@@ -50,6 +50,8 @@
 <script>
 
 export default {
+  title: 'OCRTTS',
+  
   data() {
     return {
       text_image: "Waiting an upload",
@@ -60,7 +62,65 @@ export default {
   },
 
   methods:{
-    async doOCTTTS(event) {      
+    ReadingSuccess(response) {
+      response.json().then((data) => {
+        this.reading_image = false
+        this.text_image = data.text
+
+        var audioDecode = window.atob(data.audio_bytes)
+        var audioArray = new Uint8Array(new ArrayBuffer(audioDecode.length));
+        for(var i = 0; i < audioDecode.length; i++) {
+          audioArray[i] = audioDecode.charCodeAt(i);
+        }
+
+        try {
+          const audio = this.$refs.audio
+          const blob = new Blob([audioArray], { type: 'audio/mp3' })
+          audio.src = URL.createObjectURL(blob);
+          this.$refs.file.files.shift() 
+        } catch {
+          console.log('Error decoding audio content')  
+        }
+      })
+    },
+
+    ReadingError(response) {
+      response.json().then((data) => {
+        this.reading_image = false
+        this.text_image = data.errorMessage
+      })
+    },
+
+    OnLoadAction(reader) {
+      const data = new Uint8Array(reader.result);
+      const url = process.env.VUE_APP_OCRURL;
+      const options = {
+        method: 'POST',
+        body: data,
+        headers: {
+            'Content-Type': 'application/octet-stream'
+        }
+      };
+      
+      fetch(url, options)
+        .then(response => {
+          if (response.status == 200) 
+          {
+            this.ReadingSuccess(response)
+          } 
+          else if (response.status == 413)
+          {
+            this.ReadingError(response)
+          }
+          else {
+            this.reading_image = false
+            this.text_image = 'Erro reading message, try again'
+          }
+        }
+      )
+    },
+
+    async DoOCRTTS(event) {      
       let image = event.files[0]
       this.image_name = image.name
       this.text_image = `Reading ${this.image_name}`
@@ -71,53 +131,7 @@ export default {
       let blob = await fetch(image.objectURL).then(r => r.blob());
 
       reader.onload = () => {
-        const data = new Uint8Array(reader.result);
-        const url = process.env.VUE_APP_OCRURL;
-        const options = {
-          method: 'POST',
-          body: data,
-          headers: {
-              'Content-Type': 'application/octet-stream'
-          }
-        };
-        fetch(url, options)
-          .then(response => {
-            if (response.status == 200) 
-            {
-              response.json().then((data) => {
-                this.reading_image = false
-                this.text_image = data.text
-
-                var audioDecode = window.atob(data.audio_bytes)
-                var audioArray = new Uint8Array(new ArrayBuffer(audioDecode.length));
-                for(var i = 0; i < audioDecode.length; i++) {
-                  audioArray[i] = audioDecode.charCodeAt(i);
-                }
-
-                try{
-                  const audio = this.$refs.audio
-                  const blob = new Blob([audioArray], { type: 'audio/mp3' })
-                  audio.src = URL.createObjectURL(blob);
-                  // audio.play();  
-                  this.$refs.file.files.shift() 
-                }catch{
-                  console.log('Error decoding audio content')  
-                }
-              })
-            } 
-            else if (response.status == 413)
-            {
-              response.json().then((data) => {
-                this.reading_image = false
-                this.text_image = data.errorMessage
-              })
-            }
-            else {
-              this.reading_image = false
-              this.text_image = 'Erro reading message, try again'
-            }
-          }
-        )
+        this.OnLoadAction(reader)
       };
 
       reader.readAsArrayBuffer(blob); 
