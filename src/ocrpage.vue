@@ -1,10 +1,11 @@
 <template>
   <div>
     <div class="feature-intro" id="title">
-      <h1>OCR-TTS</h1>
+      <h1>OCRTTS</h1>
     </div>
 
     <FileUpload 
+      :disabled="reading_image == true"
       ref="file"
       accept=".jpeg,.jpg" 
       :maxFileSize="50000000"
