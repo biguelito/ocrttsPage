@@ -85,10 +85,12 @@ export default {
     },
 
     ReadingError(response) {
-      response.json().then((data) => {
-        this.reading_image = false
-        this.text_image = data.errorMessage
-      })
+      response.json()
+        .then((data) => {
+          this.reading_image = false
+          this.text_image = data.message
+        }
+      )
     },
 
     OnLoadAction(reader) {
@@ -108,13 +110,9 @@ export default {
           {
             this.ReadingSuccess(response)
           } 
-          else if (response.status == 413)
+          else
           {
             this.ReadingError(response)
-          }
-          else {
-            this.reading_image = false
-            this.text_image = 'Erro reading message, try again'
           }
         }
       )
